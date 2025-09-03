@@ -1,0 +1,99 @@
+"""
+=== TESTING THE PERMISSIONS ===
+
+1. Create test users with different roles:
+
+# Admin user
+curl -X POST http://localhost:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@school.com",
+    "full_name": "School Admin",
+    "role": "ADMIN",
+    "password": "admin123!",
+    "password_confirm": "admin123!"
+  }'
+
+# Teacher user
+curl -X POST http://localhost:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "teacher@school.com",
+    "full_name": "John Teacher",
+    "role": "TEACHER",
+    "password": "teacher123!",
+    "password_confirm": "teacher123!"
+  }'
+
+# Student user
+curl -X POST http://localhost:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "student@school.com",
+    "full_name": "Jane Student",
+    "role": "STUDENT",
+    "password": "student123!",
+    "password_confirm": "student123!"
+  }'
+
+2. Test role-based access:
+
+# Admin dashboard (should work with admin token)
+curl -X GET http://localhost:8000/api/auth/dashboard/admin/ \
+  -H "Authorization: Token ADMIN_TOKEN_HERE"
+
+# Try accessing admin dashboard with teacher token (should get 403)
+curl -X GET http://localhost:8000/api/auth/dashboard/admin/ \
+  -H "Authorization: Token TEACHER_TOKEN_HERE"
+
+# Management view (should work with both admin and teacher)
+curl -X GET http://localhost:8000/api/auth/management/ \
+  -H "Authorization: Token TEACHER_TOKEN_HERE"
+
+3. Test utility endpoints:
+
+# Check your role
+curl -X GET http://localhost:8000/api/auth/check-role/ \
+  -H "Authorization: Token YOUR_TOKEN_HERE"
+
+# Quick admin test
+curl -X GET http://localhost:8000/api/auth/test/admin/ \
+  -H "Authorization: Token ADMIN_TOKEN_HERE"
+
+=== EXPECTED RESPONSES ===
+
+✅ Correct role access:
+HTTP 200 OK with data
+
+❌ Wrong role access:
+HTTP 403 Forbidden
+{
+  "detail": "You do not have permission to perform this action."
+}
+
+❌ No authentication:
+HTTP 401 Unauthorized
+{
+  "detail": "Authentication credentials were not provided."
+}
+
+=== PATTERNS FOR FUTURE APPS ===
+
+1. Import permissions in your views:
+from auth_system.permissions import IsAdminUser, IsTeacherUser
+
+2. Apply to class-based views:
+class MyView(APIView):
+    permission_classes = [IsAdminUser]
+
+3. Apply to function-based views:
+@permission_classes([IsTeacherUser])
+def my_view(request):
+    pass
+
+4. Combine permissions:
+permission_classes = [IsAuthenticated, IsAdminUser]  # Must be both
+
+5. Use composite permissions:
+permission_classes = [IsAdminOrTeacher]  # Either admin or teacher
+"""
