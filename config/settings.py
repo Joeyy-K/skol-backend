@@ -13,7 +13,12 @@ SECRET_KEY = config('SECRET_KEY')
 # On Render, you will set DEBUG to False. Locally, it's True in your .env file.
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
+# Allow default hosts if not set
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1,.onrender.com",
+    cast=Csv()
+)
 
 # Application definition
 INSTALLED_APPS = [
