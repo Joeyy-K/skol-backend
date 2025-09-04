@@ -1,5 +1,6 @@
 from decouple import config, Csv
 from pathlib import Path
+import dj_database_url  # 1. Import dj_database_url
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -7,7 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
-# SECURITY WARNING: don't run with debug turned on in production!
+
+# 2. Update DEBUG setting
+# On Render, you will set DEBUG to False. Locally, it's True in your .env file.
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
@@ -44,9 +47,11 @@ INSTALLED_APPS = [
     'exams',
 ]
 
+# 3. Update MIDDLEWARE for WhiteNoise
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add this right after SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -120,12 +125,15 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=7),
 }
 
-# Database
+# 4. Update DATABASE configuration
+# Replace your existing DATABASES dictionary with this logic.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  
-    }
+    'default': dj_database_url.config(
+        # This will use the DATABASE_URL from your .env file in development,
+        # and the one provided by Render in production.
+        default=f'sqlite:///{BASE_DIR}/db.sqlite3',
+        conn_max_age=600
+    )
 }
 
 # Password validation
@@ -150,9 +158,17 @@ TIME_ZONE = 'Africa/Nairobi'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# 5. Update STATIC FILES configuration
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # This is where 'collectstatic' will put files
+
+# Add STATICFILES_DIRS to tell Django where to find your apps' static files
+STATICFILES_DIRS = [
+    BASE_DIR / "static",  # A project-level static folder if you have one
+]
+
+# Configure WhiteNoise to handle static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
