@@ -4,7 +4,7 @@ services:
     name: skol-db
     env: postgres
     plan: free # You can upgrade this later
-    postgresmajorVersion: 14 # Use a modern version
+    postgresMajorVersion: 14 # Use a modern version - Fixed the field name
     disk:
       sizeGB: 1
 
@@ -24,7 +24,11 @@ services:
           property: connectionString
       - key: SECRET_KEY
         generateValue: true # Render will generate a secure secret key
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "skol-backend.onrender.com,localhost,127.0.0.1"
       - key: WEB_CONCURRENCY
-        value: 4
+        value: "4"
       - key: PYTHON_VERSION
-        value: 3.12.3 # Match your local Python version
+        value: "3.12.3" # Match your local Python version
