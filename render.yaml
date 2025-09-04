@@ -2,19 +2,18 @@ services:
   # A PostgreSQL database
   - type: pserv
     name: skol-db
-    env: postgres
-    plan: free # You can upgrade this later
-    disk:
-      sizeGB: 1
+    databaseName: skol_database
+    user: skol_user
+    plan: free
 
-  # The Django Web Service
+  # The Django Web Service  
   - type: web
     name: skol-backend
-    env: python
-    plan: free # You can upgrade this later
+    runtime: python3
+    plan: free
     buildCommand: "./build.sh"
     startCommand: "gunicorn config.wsgi:application"
-    healthCheckPath: "/api/health/" # We will create this simple health check endpoint
+    healthCheckPath: "/api/health/"
     envVars:
       - key: DATABASE_URL
         fromService:
@@ -22,7 +21,7 @@ services:
           name: skol-db
           property: connectionString
       - key: SECRET_KEY
-        generateValue: true # Render will generate a secure secret key
+        generateValue: true
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
@@ -30,4 +29,4 @@ services:
       - key: WEB_CONCURRENCY
         value: "4"
       - key: PYTHON_VERSION
-        value: "3.12.3" # Match your local Python version
+        value: "3.12.3"
