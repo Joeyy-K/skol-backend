@@ -4,7 +4,7 @@ services:
     name: skol-db
     env: postgres
     plan: free # You can upgrade this later
-    postgresMajorVersion: 14 # Use a modern version - Fixed the field name
+    postgresVersion: 14
     disk:
       sizeGB: 1
 
