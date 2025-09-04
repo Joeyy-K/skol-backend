@@ -16,7 +16,7 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 # Allow default hosts if not set
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS",
-    default="localhost,127.0.0.1,.onrender.com",
+    default="localhost,127.0.0.1,.onrender.com,skol-backend-zvs3.onrender.com",
     cast=Csv()
 )
 
