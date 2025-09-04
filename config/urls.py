@@ -1,7 +1,12 @@
 # config/urls.py (Root URL configuration)
 from django.contrib import admin
 from django.urls import path, include
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,5 +21,5 @@ urlpatterns = [
     path('api/fees/', include('fees.urls')), 
     path('api/', include('subjects.urls')),
     path('api/', include('exams.urls')), 
-    path('api/health/', lambda request: HttpResponse("OK")),
+    path('api/health/', health_check, name='health_check'),
 ]
