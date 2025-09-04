@@ -26,4 +26,3 @@ databases:
   - name: skol-db
     plan: free
     postgresMajorVersion: '14'
-    diskSizeGB: 1
