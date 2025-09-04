@@ -2,8 +2,6 @@ services:
   # A PostgreSQL database
   - type: pserv
     name: skol-db
-    databaseName: skol_database
-    user: skol_user
     plan: free
 
   # The Django Web Service  
