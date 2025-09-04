@@ -20,6 +20,12 @@ ALLOWED_HOSTS = config(
     cast=Csv()
 )
 
+# Safety fallback in case env parsing fails
+if ".onrender.com" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(".onrender.com")
+if "skol-backend-zvs3.onrender.com" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("skol-backend-zvs3.onrender.com")
+
 # Application definition
 INSTALLED_APPS = [
     # Django default apps
