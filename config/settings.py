@@ -13,6 +13,8 @@ SECRET_KEY = config('SECRET_KEY')
 # On Render, you will set DEBUG to False. Locally, it's True in your .env file.
 DEBUG = config('DEBUG', default=False, cast=bool)
 
+POPULATE_DB = config('POPULATE_DB', default=True, cast=bool)
+
 # Allow default hosts if not set
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS",
