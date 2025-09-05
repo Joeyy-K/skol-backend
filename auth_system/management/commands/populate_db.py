@@ -214,6 +214,9 @@ class Command(BaseCommand):
         """Create users and their associated profiles in bulk"""
         self.stdout.write('\n👥 Creating users and profiles...')
         
+        # ADD A PLACEHOLDER FOR CREDENTIALS
+        credentials_to_log = {}
+        
         # Create Users
         users_to_create = []
         roles = ['TEACHER', 'PARENT', 'STUDENT']
@@ -226,7 +229,15 @@ class Command(BaseCommand):
         for role in roles:
             for i in range(counts[role]):
                 full_name = fake.name()
-                email = f'{role.lower()}{i+1}@{fake.domain_name()}'
+                email = f'{role.lower()}{i+1}@yourschool.demo'  # Use a consistent domain
+                
+                # LOG THE FIRST OF EACH TYPE
+                if i == 0:  # If this is the first user of this role
+                    credentials_to_log[role] = {
+                        'email': email,
+                        'password': 'password123'
+                    }
+                
                 users_to_create.append(User(
                     email=email,
                     full_name=full_name,
@@ -278,6 +289,16 @@ class Command(BaseCommand):
         ], batch_size=100)
 
         self.stdout.write(self.style.SUCCESS(f'✅ Created {users.count()} users and profiles'))
+        
+        # PRINT THE CREDENTIALS AT THE END
+        self.stdout.write(self.style.NOTICE('\n' + '='*40))
+        self.stdout.write(self.style.NOTICE(' L O G I N   C R E D E N T I A L S '))
+        self.stdout.write(self.style.NOTICE('='*40))
+        for role, creds in credentials_to_log.items():
+            self.stdout.write(f'  - {role}:')
+            self.stdout.write(f'    Email:    {creds["email"]}')
+            self.stdout.write(f'    Password: {creds["password"]}')
+        self.stdout.write(self.style.NOTICE('='*40 + '\n'))
         
         return {
             'teachers': list(teachers),
