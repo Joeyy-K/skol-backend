@@ -13,7 +13,7 @@ SECRET_KEY = config('SECRET_KEY')
 # On Render, you will set DEBUG to False. Locally, it's True in your .env file.
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-POPULATE_DB = config('POPULATE_DB', default=True, cast=bool)
+POPULATE_DB = config('POPULATE_DB', default=False, cast=bool)
 
 # Allow default hosts if not set
 ALLOWED_HOSTS = config(
@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'djoser',
     'django_filters',
+    'django_crontab',
 
     # Custom apps
     'auth_system.apps.AuthSystemConfig', 
@@ -192,3 +193,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 
 AUTH_USER_MODEL = 'auth_system.User'
+
+# Cron jobs configuration
+CRONJOBS = [
+    # Ping every 10 minutes to keep awake (only for free tier)
+    ('*/10 * * * *', 'myproject.cron.keep_alive_ping'),
+]

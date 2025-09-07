@@ -290,15 +290,38 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f'✅ Created {users.count()} users and profiles'))
         
+        # CREATE ADMIN USER IF IT DOESN'T EXIST
+        admin_email = 'admin@yourschool.demo'
+        admin_password = 'admin123'
+        
+        if not User.objects.filter(email=admin_email).exists():
+            admin_user = User.objects.create_superuser(
+                email=admin_email,
+                password=admin_password,
+                full_name='System Administrator'
+            )
+            self.stdout.write(f'  Created admin user: {admin_email}')
+        else:
+            self.stdout.write('  Admin user already exists, skipping creation')
+
         # PRINT THE CREDENTIALS AT THE END
-        self.stdout.write(self.style.NOTICE('\n' + '='*40))
-        self.stdout.write(self.style.NOTICE(' L O G I N   C R E D E N T I A L S '))
-        self.stdout.write(self.style.NOTICE('='*40))
+        self.stdout.write(self.style.NOTICE('\n' + '='*50))
+        self.stdout.write(self.style.NOTICE('     L O G I N   C R E D E N T I A L S     '))
+        self.stdout.write(self.style.NOTICE('='*50))
+        
+        # Show admin credentials first
+        self.stdout.write('  🔐 ADMIN (Django Admin Access):')
+        self.stdout.write(f'    Email:    {admin_email}')
+        self.stdout.write(f'    Password: {admin_password}')
+        self.stdout.write(f'    URL:      /admin/')
+        self.stdout.write('')
+        
+        # Show regular user credentials
         for role, creds in credentials_to_log.items():
-            self.stdout.write(f'  - {role}:')
+            self.stdout.write(f'  👤 {role}:')
             self.stdout.write(f'    Email:    {creds["email"]}')
             self.stdout.write(f'    Password: {creds["password"]}')
-        self.stdout.write(self.style.NOTICE('='*40 + '\n'))
+        self.stdout.write(self.style.NOTICE('='*50 + '\n'))
         
         return {
             'teachers': list(teachers),
