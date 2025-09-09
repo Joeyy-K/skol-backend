@@ -293,16 +293,27 @@ class Command(BaseCommand):
         # CREATE ADMIN USER IF IT DOESN'T EXIST
         admin_email = 'admin@yourschool.demo'
         admin_password = 'admin123'
-        
+
         if not User.objects.filter(email=admin_email).exists():
-            admin_user = User.objects.create_superuser(
+            admin_user = User.objects.create_user(
                 email=admin_email,
                 password=admin_password,
                 full_name='System Administrator'
             )
+            # Explicitly set admin properties
+            admin_user.is_staff = True
+            admin_user.is_superuser = True
+            admin_user.role = 'ADMIN'  # Set role explicitly to ADMIN, not STUDENT
+            admin_user.save()
             self.stdout.write(f'  Created admin user: {admin_email}')
         else:
-            self.stdout.write('  Admin user already exists, skipping creation')
+            # If admin exists, ensure it has correct permissions
+            admin_user = User.objects.get(email=admin_email)
+            admin_user.is_staff = True
+            admin_user.is_superuser = True
+            admin_user.role = 'ADMIN'  # Ensure role is ADMIN
+            admin_user.save()
+            self.stdout.write('  Admin user updated with correct permissions')
 
         # PRINT THE CREDENTIALS AT THE END
         self.stdout.write(self.style.NOTICE('\n' + '='*50))

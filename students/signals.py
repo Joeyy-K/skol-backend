@@ -9,18 +9,13 @@ def create_student_profile(sender, instance, created, **kwargs):
     """
     Automatically create a StudentProfile when a User with role 'STUDENT' is created.
     """
-    # The 'created' flag is True only on the first save (i.e., object creation)
-    if created and instance.role == 'STUDENT':
-        # Create a unique, temporary admission number.
-        # This should be updated later by an admin.
+    if created and instance.role == 'STUDENT' and not instance.is_superuser and not instance.is_staff:
         admission_number = f"TEMP-{instance.id}-{timezone.now().strftime('%Y%m%d')}"
         
-        # Create the StudentProfile with only fields that exist in your model
         StudentProfile.objects.create(
             user=instance,
             admission_number=admission_number,
-            date_of_birth=timezone.now().date(),  # Placeholder DOB
-            address="Not Specified",  # This field exists in your model
-            # classroom=None (will be set to null by default)
+            date_of_birth=timezone.now().date(),  
+            address="Not Specified",  
         )
         print(f"StudentProfile created for {instance.email}")
