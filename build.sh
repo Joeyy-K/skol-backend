@@ -2,39 +2,47 @@
 # Exit on error
 set -o errexit
 
-echo "---> Running build script..."
-
-# Install dependencies
+# --- 1. Install Dependencies ---
+echo "Installing dependencies..."
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# Create static directory if it doesn't exist
-mkdir -p static
-
-# Collect static files
+# --- 2. Collect Static Files ---
+echo "Collecting static files..."
 python manage.py collectstatic --no-input
 
-# Apply any database migrations
+# --- 3. Apply Database Migrations ---
+# This is always required for all environments.
+echo "Applying database migrations..."
 python manage.py migrate
 
-# --- NEW LOGIC: Conditionally populate the database ---
-# We will check for an environment variable called POPULATE_DB
-# If it's set to "true", we run the scripts.
-if [[ $POPULATE_DB == "true" ]]; then
-    echo "---> POPULATE_DB is true, running population scripts..."
-    echo "---> Populating main database..."
-    python manage.py populate_db --force
-    
-    # Check if populate_fees command exists before running
-    if python manage.py help | grep -q "populate_fees"; then
-        echo "---> Populating fees database..."
-        python manage.py populate_fees --force
-    else
-        echo "---> populate_fees command not found, skipping..."
-    fi
-    
-    echo "---> Database population complete."
+# --- 4. Populate Database (ONLY IN NON-PRODUCTION ENVIRONMENTS) ---
+# This block checks for an environment variable called 'POPULATE_DB'.
+# You will only set this variable to "true" on your staging or review servers.
+if [ "$POPULATE_DB" = "true" ]; then
+  echo "POPULATE_DB is set to true. Populating the database with test data..."
+  
+  # VVV RUN YOUR SEPARATE SCRIPTS IN THE CORRECT ORDER VVV
+  
+  # Run the main script first to create users, classes, terms, etc.
+  echo "Running main population script (users, academics)..."
+  python manage.py populate_db --force
+  
+  # Run the expenses script
+  echo "Running expenses population script..."
+  python manage.py populate_expenses
+  
+  # Run the fees script
+  echo "Running financial (fees, invoices, payments) population script..."
+  python manage.py populate_fees --force
+  
+  # Run the events script LAST, as it depends on all other data
+  echo "Running calendar events population script..."
+  python manage.py populate_events
+  
+  echo "Database population complete."
 else
-    echo "---> POPULATE_DB not set to 'true', skipping database population."
+  echo "POPULATE_DB is not set to true. Skipping database population."
 fi
 
-echo "---> Build script finished."
+echo "Build finished successfully!"

@@ -13,20 +13,7 @@ SECRET_KEY = config('SECRET_KEY')
 # On Render, you will set DEBUG to False. Locally, it's True in your .env file.
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-POPULATE_DB = config('POPULATE_DB', default=False, cast=bool)
-
-# Allow default hosts if not set
-ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS",
-    default="localhost,127.0.0.1,.onrender.com,skol-backend-zvs3.onrender.com",
-    cast=Csv()
-)
-
-# Safety fallback in case env parsing fails
-if ".onrender.com" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(".onrender.com")
-if "skol-backend-zvs3.onrender.com" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("skol-backend-zvs3.onrender.com")
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
 # Application definition
 INSTALLED_APPS = [
@@ -45,7 +32,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'djoser',
     'django_filters',
-    'django_crontab',
 
     # Custom apps
     'auth_system.apps.AuthSystemConfig', 
@@ -57,6 +43,10 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'classes.apps.ClassesConfig',
     'fees.apps.FeesConfig',
+    'expenses.apps.ExpensesConfig',
+    'budgets.apps.BudgetsConfig',''
+    'calendar_events.apps.CalendarEventsConfig',
+    'notifications.apps.NotificationsConfig',
     'subjects',
     'exams',
 ]
@@ -193,9 +183,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 
 AUTH_USER_MODEL = 'auth_system.User'
-
-# Cron jobs configuration
-CRONJOBS = [
-    # Ping every 10 minutes to keep awake (only for free tier)
-    ('*/10 * * * *', 'myproject.cron.keep_alive_ping'),
-]
