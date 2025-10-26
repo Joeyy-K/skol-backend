@@ -1,10 +1,12 @@
+import datetime
 from rest_framework import status, permissions, generics, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
 from rest_framework.decorators import action
-from django.db.models import Count
+from django.db.models import Count, Sum
+from django.db import models
 from django.conf import settings
 from datetime import timedelta
 
@@ -32,6 +34,8 @@ from .models import User
 from classes.models import Class
 from subjects.models import Subject
 from exams.models import Exam
+from fees.models import Invoice
+from expenses.models import Expense 
 from .permissions import (
     IsAdminUser, 
     IsTeacherUser, 
@@ -219,7 +223,61 @@ class AdminDashboardView(APIView):
                 'total_exams': total_exams,
             }
         }, status=status.HTTP_200_OK)
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def dashboard_financial_stats(request):
+    """
+    Provides financial statistics for the admin dashboard,
+    broken down by the current month and current year.
+    """
+    now = datetime.datetime.now()
+    current_month = now.month
+    current_year = now.year
 
+    current_month_invoices = Invoice.objects.filter(
+        issue_date__year=current_year,
+        issue_date__month=current_month
+    )
+    current_month_expenses_qs = Expense.objects.filter(
+        expense_date__year=current_year,
+        expense_date__month=current_month
+    )
+    
+    current_month_income = current_month_invoices.aggregate(total=Sum('total_amount'))['total'] or 0
+    current_month_collection = current_month_invoices.aggregate(total=Sum('amount_paid'))['total'] or 0
+    current_month_expenses = current_month_expenses_qs.aggregate(total=Sum('amount'))['total'] or 0
+    current_month_outstanding = current_month_income - current_month_collection
+
+    current_year_invoices = Invoice.objects.filter(
+        issue_date__year=current_year
+    )
+    current_year_expenses_qs = Expense.objects.filter(
+        expense_date__year=current_year
+    )
+
+    current_year_income = current_year_invoices.aggregate(total=Sum('total_amount'))['total'] or 0
+    current_year_collection = current_year_invoices.aggregate(total=Sum('amount_paid'))['total'] or 0
+    current_year_expenses = current_year_expenses_qs.aggregate(total=Sum('amount'))['total'] or 0
+    current_year_outstanding = current_year_income - current_year_collection
+
+    return Response({
+        'current_month': {
+            'month_name': now.strftime("%B"),
+            'year': current_year,
+            'income': current_month_income,
+            'collection': current_month_collection,
+            'expenses': current_month_expenses, 
+            'outstanding': current_month_outstanding,
+        },
+        'current_year': {
+            'year': current_year,
+            'income': current_year_income,
+            'collection': current_year_collection,
+            'expenses': current_year_expenses, 
+            'outstanding': current_year_outstanding,
+        }
+    }, status=status.HTTP_200_OK)
 
 class AllUsersListView(ListAPIView):
     """

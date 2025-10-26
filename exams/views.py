@@ -4,14 +4,20 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-from django.db.models import Count, Avg, Max, Min, Q
+from django.db.models import Count, Avg, Max, Min, Q, Window, F, FloatField
+from django.db.models.functions import Rank
 from collections import Counter
+
+from students.models import StudentProfile
 from .models import Exam, StudentScore, Term
 from .serializers import (
     ExamSerializer, StudentScoreSerializer, ExamStatisticsSerializer, TermSerializer
 )
 from auth_system.permissions import IsAdminOrTeacher, IsAdminOrOwner, IsAdminUser, IsParentUser
 from rest_framework.generics import ListAPIView
+from reports.models import Report
+from django.http import HttpResponse
+import csv
 
 class TermViewSet(viewsets.ModelViewSet):
     """
@@ -88,13 +94,10 @@ class ExamViewSet(viewsets.ModelViewSet):
         - Admins/Teachers can create and list exams.
         - Only the owner of the exam or an Admin can update or delete it.
         """
-        # For actions that modify a specific exam object
         if self.action in ['update', 'partial_update', 'destroy', 'add_scores']:
             permission_classes = [IsAdminOrOwner]
-        # For actions that list or create exams
         elif self.action in ['list', 'retrieve', 'create', 'statistics', 'recent', 'get_scores']:
             permission_classes = [IsAdminOrTeacher]
-        # Default to a safe permission
         else:
             permission_classes = [IsAdminUser]
             
@@ -224,8 +227,90 @@ class ExamViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(recent_exams, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='admin-gradebook')
+    def admin_gradebook(self, request):
+        class_id = request.query_params.get('class_id')
+        term_id = request.query_params.get('term_id')
 
+        if not class_id or not term_id:
+            return Response({"error": "class_id and term_id are required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        students = StudentProfile.objects.filter(classroom_id=class_id).select_related('user')
+
+        published_reports_map = {
+            report.student_id: report.id 
+            for report in Report.objects.filter(
+                student__in=students, 
+                term_id=term_id, 
+                is_published=True
+            )
+        }
+        
+        ranked_students = students.annotate(
+            average_score=Avg(
+                F('exam_scores__score') * 100.0 / F('exam_scores__exam__max_score'),
+                filter=Q(exam_scores__exam__term_id=term_id),
+                output_field=FloatField()
+            ),
+            rank=Window(
+                expression=Rank(),
+                order_by=F('average_score').desc(nulls_last=True)
+            )
+        ).order_by('rank', 'user__full_name')
+
+        response_data = []
+        for student in ranked_students:
+            avg = student.average_score
+            student_id = student.id
+            is_published = student_id in published_reports_map
+
+            response_data.append({
+                'student_id': student_id,
+                'full_name': student.user.full_name,
+                'admission_number': student.admission_number,
+                'average_score': round(avg, 2) if avg is not None else None,
+                'rank': student.rank if avg is not None else None,
+                'is_report_published': is_published,
+                'report_id': published_reports_map.get(student_id) if is_published else None,
+            })
+
+        return Response(response_data)
+    
+    @action(detail=False, methods=['get'], url_path='download-gradebook-csv')
+    def download_gradebook_csv(self, request):
+        class_id = request.query_params.get('class_id')
+        term_id = request.query_params.get('term_id')
+
+        if not class_id or not term_id:
+            return Response({"error": "class_id and term_id are required."}, status=400)
+
+        students = StudentProfile.objects.filter(classroom_id=class_id).select_related('user')
+        published_reports_map = { report.student_id: report.id for report in Report.objects.filter(student__in=students, term_id=term_id, is_published=True) }
+        ranked_students = students.annotate(
+            average_score=Avg(F('exam_scores__score') * 100.0 / F('exam_scores__exam__max_score'), filter=Q(exam_scores__exam__term_id=term_id), output_field=FloatField()),
+            rank=Window(expression=Rank(), order_by=F('average_score').desc(nulls_last=True))
+        ).order_by('rank', 'user__full_name')
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="gradebook_class_{class_id}_term_{term_id}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Admission Number', 'Student Name', 'Average Score (%)', 'Class Rank', 'Report Status'])
+
+        for student in ranked_students:
+            avg = student.average_score
+            status = 'Published' if student.id in published_reports_map else 'Not Published'
+            writer.writerow([
+                student.admission_number,
+                student.user.full_name,
+                round(avg, 2) if avg is not None else 'N/A',
+                student.rank if avg is not None else 'N/A',
+                status
+            ])
+
+        return response
+    
 class StudentScoreViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing individual student scores

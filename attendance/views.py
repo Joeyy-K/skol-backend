@@ -19,6 +19,7 @@ from .serializers import (
 )
 from students.models import StudentProfile
 from classes.models import Class
+from calendar_events.models import Event
 
 class IsAdminOrTeacher(IsAuthenticated):
     """
@@ -63,21 +64,14 @@ class AttendanceViewSet(viewsets.ViewSet):
         """
         GET /api/attendance/sheet/?class_id=1&date=2024-01-15
         
-        Returns all students in the class with their attendance status for the date.
-        Now includes metadata about who can edit and when it was last updated.
+        Now includes a check for holidays from the calendar_events app.
         """
         class_id = request.query_params.get('class_id')
         date_str = request.query_params.get('date')
         
-        if not class_id:
+        if not class_id or not date_str:
             return Response(
-                {'error': 'class_id parameter is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not date_str:
-            return Response(
-                {'error': 'date parameter is required'},
+                {'error': 'class_id and date parameters are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -88,7 +82,21 @@ class AttendanceViewSet(viewsets.ViewSet):
                 {'error': 'Invalid date format. Use YYYY-MM-DD'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        holiday = Event.objects.filter(
+            event_type='HOLIDAY',
+            start_time__date__lte=date_obj,
+            end_time__date__gte=date_obj
+        ).first()
+
+        if holiday:
+            return Response({
+                'status': 'holiday',
+                'message': f"Attendance cannot be taken. The selected date is a holiday: {holiday.title}.",
+                'date': date_str,
+                'class_id': class_id,
+            })
+                    
         classroom = get_object_or_404(Class, id=class_id)
         
         can_edit = (
@@ -129,6 +137,7 @@ class AttendanceViewSet(viewsets.ViewSet):
             sheet_data.append(student_data)
         
         return Response({
+            'status': 'school_day',
             'class_id': class_id,
             'class_name': classroom.name,
             'date': date_str,

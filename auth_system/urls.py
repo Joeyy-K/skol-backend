@@ -10,6 +10,8 @@ from .views import (
     
     # Management and utility views
     ManagementView, AllUsersListView, ProfileViewSet, ChangePasswordView,
+
+    dashboard_financial_stats,
     
     # Test endpoints
     check_user_role, admin_test_endpoint, teacher_test_endpoint
@@ -36,6 +38,7 @@ urlpatterns = [
     path('management/', ManagementView.as_view(), name='management'),
     path('users/', AllUsersListView.as_view(), name='all_users'),
     path('settings/password/', ChangePasswordView.as_view(), name='change-password'),
+    path('dashboard/financial-stats/', dashboard_financial_stats, name='dashboard-financial-stats'),
     
     # Utility and test endpoints
     path('check-role/', check_user_role, name='check_role'),
