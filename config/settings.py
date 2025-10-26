@@ -43,6 +43,10 @@ INSTALLED_APPS = [
     'reports.apps.ReportsConfig',
     'classes.apps.ClassesConfig',
     'fees.apps.FeesConfig',
+    'expenses.apps.ExpensesConfig',
+    'budgets.apps.BudgetsConfig',''
+    'calendar_events.apps.CalendarEventsConfig',
+    'notifications.apps.NotificationsConfig',
     'subjects',
     'exams',
 ]

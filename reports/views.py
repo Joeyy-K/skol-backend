@@ -484,6 +484,38 @@ class MyPublishedReportsView(APIView):
                 {'error': 'An error occurred while fetching reports', 'details': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+        
+class AdminReportDetailView(APIView):
+    """
+    View for an Admin or Teacher to get the full report data for any report.
+    This bypasses the parent-child ownership check.
+    """
+    permission_classes = [IsAdminOrTeacher]
+
+    def get(self, request, pk=None):
+        try:
+            report = get_object_or_404(Report, pk=pk)
+            
+            if not report.is_published:
+                return Response(
+                    {'error': 'This report has not been published yet.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            return Response(report.report_data, status=status.HTTP_200_OK)
+
+        except Report.DoesNotExist:
+            return Response(
+                {'error': 'Report not found.'},
+                status=status.HTTP_44_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in AdminReportDetailView for report {pk}: {str(e)}")
+            return Response(
+                {'error': 'An unexpected error occurred.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class PublishedReportDetailView(APIView):
@@ -529,3 +561,46 @@ class PublishedReportDetailView(APIView):
                 {'error': 'An unexpected error occurred while fetching the report.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class GenerateSingleReportView(APIView):
+    """Admin view to generate and publish a report card for a single student."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        student_id = request.data.get('student_id')
+        term_id = request.data.get('term_id')
+
+        if not student_id or not term_id:
+            return Response({"error": "student_id and term_id are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            student = get_object_or_404(StudentProfile, id=student_id)
+            term = get_object_or_404(Term, id=term_id)
+            
+            report_view = ReportCardDataView()
+            report_data = report_view._generate_report_card_data(student, term, exam=None)
+            
+            title = f"{term.get_name_display()} {term.academic_year} - Term Report"
+            
+            report, created = Report.objects.update_or_create(
+                student=student,
+                term=term,
+                exam=None, 
+                defaults={
+                    'title': title,
+                    'report_data': report_data,
+                    'is_published': True,
+                    'generated_by': request.user,
+                }
+            )
+            
+            return Response({
+                "success": True,
+                "message": f"Report {'created' if created else 'updated'} for {student.user.full_name}",
+                "report_id": report.id
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error generating single report: {str(e)}")
+            return Response({"error": "Failed to generate report."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
