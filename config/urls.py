@@ -44,7 +44,7 @@ urlpatterns = [
     path('api/fees/', include('fees.urls')), 
     path('api/expenses/', include('expenses.urls')),
     path('api/budgets/', include('budgets.urls')), 
-    path('api/calendar-events/', include('calendar_events.urls')),
+    path('api/calendar/', include('calendar_events.urls')),
     path('api/notifications/', include('notifications.urls')),
     path('api/', include('subjects.urls')),
     path('api/', include('exams.urls')), 
