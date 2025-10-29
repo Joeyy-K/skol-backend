@@ -44,5 +44,4 @@ urlpatterns = [
     path('api/fees/', include('fees.urls')), 
     path('api/', include('subjects.urls')),
     path('api/', include('exams.urls')), 
-    
 ]
