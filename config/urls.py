@@ -5,6 +5,7 @@ from django.http import HttpResponse
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', lambda request: HttpResponse("OK")),
     path('api/attendance/', include('attendance.urls')), 
     path('api/auth/', include('auth_system.urls')),
     path('api/students/', include('students.urls')),
@@ -19,5 +20,4 @@ urlpatterns = [
     path('api/calendar/', include('calendar_events.urls')),
     path('api/', include('subjects.urls')),
     path('api/', include('exams.urls')), 
-    path('api/health/', lambda request: HttpResponse("OK")),
 ]
