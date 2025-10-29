@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta, date
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import transaction, connection
 from django.utils import timezone
 from faker import Faker
 from tqdm import tqdm
@@ -109,36 +109,58 @@ class Command(BaseCommand):
             self.style.SUCCESS('\n✅ Database population completed successfully!')
         )
 
-    @transaction.atomic
     def wipe_existing_data(self):
         """Delete all existing school data except superusers"""
         self.stdout.write('🗑️  Wiping existing data...')
         
-        # Delete all records except superusers
-        models_to_clear = [
-            AttendanceRecord,
-            StudentScore,
-            Exam,
-            ScheduleEntry,
-            StudentProfile,
-            TeacherProfile,
-            ParentProfile,
-            Class,
-            Subject,
-            Term,
-            TimeSlot,
-        ]
+        # Disable foreign key constraints temporarily for SQLite
+        with connection.cursor() as cursor:
+            if connection.vendor == 'sqlite':
+                cursor.execute('PRAGMA foreign_keys = OFF;')
         
-        for model in models_to_clear:
-            count = model.objects.count()
-            model.objects.all().delete()
-            self.stdout.write(f'  Deleted {count} {model.__name__} records')
-        
-        # Delete non-superuser users
-        non_superusers = User.objects.filter(is_superuser=False)
-        count = non_superusers.count()
-        non_superusers.delete()
-        self.stdout.write(f'  Deleted {count} non-superuser accounts')
+        try:
+            with transaction.atomic():
+                # Delete all records in the correct order (children first, then parents)
+                models_to_clear = [
+                    (AttendanceRecord, 'AttendanceRecord'),
+                    (StudentScore, 'StudentScore'), 
+                    (Exam, 'Exam'),
+                    (ScheduleEntry, 'ScheduleEntry'),
+                    (StudentProfile, 'StudentProfile'),
+                    (TeacherProfile, 'TeacherProfile'),
+                    (ParentProfile, 'ParentProfile'),
+                    (Class, 'Class'),
+                    (Subject, 'Subject'),
+                    (Term, 'Term'),
+                    (TimeSlot, 'TimeSlot'),
+                ]
+                
+                for model, name in models_to_clear:
+                    count = model.objects.count()
+                    if count > 0:
+                        # Clear many-to-many relationships first
+                        if hasattr(model, '_meta'):
+                            for field in model._meta.get_fields():
+                                if field.many_to_many:
+                                    for obj in model.objects.all():
+                                        getattr(obj, field.name).clear()
+                        
+                        # Delete the records
+                        model.objects.all().delete()
+                        self.stdout.write(f'  Deleted {count} {name} records')
+                
+                # Delete non-superuser users
+                non_superusers = User.objects.filter(is_superuser=False)
+                count = non_superusers.count()
+                if count > 0:
+                    non_superusers.delete()
+                    self.stdout.write(f'  Deleted {count} non-superuser accounts')
+                
+        finally:
+            # Re-enable foreign key constraints
+            with connection.cursor() as cursor:
+                if connection.vendor == 'sqlite':
+                    cursor.execute('PRAGMA foreign_keys = ON;')
         
         self.stdout.write(self.style.SUCCESS('✅ Data wipe completed'))
 
@@ -155,32 +177,38 @@ class Command(BaseCommand):
             {'name': 'TERM_3', 'academic_year': current_year, 'start_date': date(current_year, 9, 15), 'end_date': date(current_year, 11, 30), 'is_active': False},
         ]
         
-        terms = [Term.objects.create(**data) for data in terms_data]
+        terms = []
+        for data in terms_data:
+            term = Term.objects.create(**data)
+            terms.append(term)
+        
         self.stdout.write(f'  Created {len(terms)} terms for the year {current_year}')
         
         # Create Classes
         class_names = [f'Grade {g}{l}' for g in range(1, 9) for l in ['A', 'B']]
-        classes_to_create = [
-            Class(
+        classes = []
+        
+        for i in range(options['classes']):
+            class_obj = Class.objects.create(
                 name=class_names[i] if i < len(class_names) else f'Class {i+1}',
                 level=f'Grade {((i // 2) + 1)}'
             )
-            for i in range(options['classes'])
-        ]
-        classes = Class.objects.bulk_create(classes_to_create)
+            classes.append(class_obj)
+        
         self.stdout.write(f'  Created {len(classes)} classes')
         
         # Create Subjects
         subject_names = ['Mathematics', 'English', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Art', 'Music', 'Physical Education']
-        subjects_to_create = [
-            Subject(
+        subjects = []
+        
+        for i in range(options['subjects']):
+            subject = Subject.objects.create(
                 name=subject_names[i] if i < len(subject_names) else f'Subject {i+1}',
                 code=f'SUB{i+1:03d}',
                 level=f'Grade {random.randint(1, 8)}'
             )
-            for i in range(options['subjects'])
-        ]
-        subjects = Subject.objects.bulk_create(subjects_to_create)
+            subjects.append(subject)
+        
         self.stdout.write(f'  Created {len(subjects)} subjects')
 
         # Create Time Slots
@@ -194,10 +222,11 @@ class Command(BaseCommand):
             ('Period 5', '13:00', '13:45'),
             ('Period 6', '13:45', '14:30')
         ]
-        time_slots = [
-            TimeSlot.objects.create(name=name, start_time=start_time, end_time=end_time)
-            for name, start_time, end_time in time_slots_data
-        ]
+        time_slots = []
+        for name, start_time, end_time in time_slots_data:
+            time_slot = TimeSlot.objects.create(name=name, start_time=start_time, end_time=end_time)
+            time_slots.append(time_slot)
+        
         self.stdout.write(f'  Created {len(time_slots)} time slots')
 
         self.stdout.write(self.style.SUCCESS('✅ Academic structure created'))
@@ -261,32 +290,32 @@ class Command(BaseCommand):
         subject_names = ['Mathematics', 'English', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Art', 'Music', 'Physical Education']
         
         # Create profiles in bulk
-        TeacherProfile.objects.bulk_create([
-            TeacherProfile(
+        teacher_profiles = []
+        for t in teachers:
+            teacher_profiles.append(TeacherProfile(
                 user=t,
                 employee_id=f'EMP{t.id:04d}',
                 specialization=random.choice(subject_names),
                 date_of_hire=fake.date_between(start_date='-10y')
-            )
-            for t in teachers
-        ], batch_size=100)
+            ))
+        TeacherProfile.objects.bulk_create(teacher_profiles, batch_size=100)
         
-        ParentProfile.objects.bulk_create([
-            ParentProfile(
+        parent_profiles = []
+        for p in parents:
+            parent_profiles.append(ParentProfile(
                 user=p,
                 phone_number=fake.phone_number()
-            )
-            for p in parents
-        ], batch_size=100)
+            ))
+        ParentProfile.objects.bulk_create(parent_profiles, batch_size=100)
         
-        StudentProfile.objects.bulk_create([
-            StudentProfile(
+        student_profiles = []
+        for s in students:
+            student_profiles.append(StudentProfile(
                 user=s,
                 admission_number=f'STU{s.id:04d}',
                 date_of_birth=fake.date_of_birth(minimum_age=5, maximum_age=18)
-            )
-            for s in students
-        ], batch_size=100)
+            ))
+        StudentProfile.objects.bulk_create(student_profiles, batch_size=100)
 
         self.stdout.write(self.style.SUCCESS(f'✅ Created {users.count()} users and profiles'))
         
@@ -403,18 +432,20 @@ class Command(BaseCommand):
         self.stdout.write(f'  Created {len(schedule_entries)} schedule entries')
         
         # Create exams and scores
-        exams = [
-            Exam(
-                name=f'{s.name} Mid-Term',
-                subject=s,
-                classroom=c,
-                term=active_term,
-                date=fake.date_between(start_date=active_term.start_date, end_date=active_term.end_date),
-                max_score=100,
-                created_by=c.teacher_in_charge
-            )
-            for c in classes for s in subjects
-        ]
+        exams = []
+        for c in classes:
+            for s in subjects:
+                exam = Exam(
+                    name=f'{s.name} Mid-Term',
+                    subject=s,
+                    classroom=c,
+                    term=active_term,
+                    date=fake.date_between(start_date=active_term.start_date, end_date=active_term.end_date),
+                    max_score=100,
+                    created_by=c.teacher_in_charge
+                )
+                exams.append(exam)
+        
         Exam.objects.bulk_create(exams, batch_size=100)
         
         # Create student scores

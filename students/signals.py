@@ -15,7 +15,7 @@ def create_student_profile(sender, instance, created, **kwargs):
         StudentProfile.objects.create(
             user=instance,
             admission_number=admission_number,
-            date_of_birth=timezone.now().date(),  
+            date_of_birth=timezone.now().date(), 
             address="Not Specified",  
         )
         print(f"StudentProfile created for {instance.email}")
