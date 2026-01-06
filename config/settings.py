@@ -1,6 +1,5 @@
 from decouple import config, Csv
 from pathlib import Path
-import dj_database_url  # 1. Import dj_database_url
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -44,7 +43,7 @@ INSTALLED_APPS = [
     'classes.apps.ClassesConfig',
     'fees.apps.FeesConfig',
     'expenses.apps.ExpensesConfig',
-    'budgets.apps.BudgetsConfig',''
+    'budgets.apps.BudgetsConfig',
     'calendar_events.apps.CalendarEventsConfig',
     'notifications.apps.NotificationsConfig',
     'subjects',
@@ -130,14 +129,18 @@ SIMPLE_JWT = {
 }
 
 # 4. Update DATABASE configuration
-# Replace your existing DATABASES dictionary with this logic.
 DATABASES = {
-    'default': dj_database_url.config(
-        # This will use the DATABASE_URL from your .env file in development,
-        # and the one provided by Render in production.
-        default=f'sqlite:///{BASE_DIR}/db.sqlite3',
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
 }
 
 # Password validation
